@@ -1,0 +1,72 @@
+% Caso de Estudio 1 - Sistema de Dos Variables de Estado
+clc
+close all
+clear all
+%% Ejercicio 1
+
+% Constantes del Sistema
+R=47;
+L=1e-6;
+C=100e-9;
+
+% Matrices
+A = [-R/L -1/L ; 1/C 0];
+b = [1/L ; 0];
+c=[R 0;0 1]; % Necesito el voltaje a la salida que es el producto entre la corriente de la malla y la resistencia
+
+% Entrada de 12 V que cambia de singo cada 1 ms
+
+h=1e-10; %paso
+t = 0:h:(4e-3); % Vector de tiempo de 0 a 4 ms
+u = zeros(size(t)); % Vector de ceros de la misma longitud que el vector de tiempo
+variable=0;%cuenta 1 ms/h
+
+for i = 1:length(t)
+    
+    if t(i) <= 0.0001
+        u(i)= 0; %al inicio vale 0 durante 0.1 ms
+    elseif t(i) > 0.0001 && variable<=(0.001/h) %para t > 0.1 ms cambia la entrada a 12 V durante 1 ms
+        u(i) = 12;
+        variable=variable+1;
+    elseif t(i) > 0.0001 && variable>(0.001/h) %despues de 1 ms cambia a -12 V durante 1 ms
+        u(i) = -12;
+        variable=variable+1;
+    end
+    
+    if variable>(2*(0.001/h))
+        variable=0;
+    end
+    
+end
+
+fz=15;
+subplot(3,1,3);
+plot(t, u, '-r','LineWidth', 1.2);
+grid on;
+title('Tension de Entrada', 'Interpreter','latex','FontSize', fz)
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
+
+% Voltaje en el Capacitor
+subplot(3,1,2);
+c=[0 1];
+sys1=ss(A,b,c,[]);
+%figure
+[y,z,x]=lsim(sys1,u,t);
+plot(z, y, '-b','LineWidth', 1.2);
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
+title('Voltaje en el capacitor Vc(t)', 'Interpreter','latex','FontSize', fz);
+grid on;
+
+% Corriente
+subplot(3,1,1);
+c=[1 0];
+sys2=ss(A,b,c,[]);
+[y,z,x]=lsim(sys2,u,t);
+%figure
+plot(z, y, '-m','LineWidth', 1.2);
+title('Corriente en el circuito i(t)', 'Interpreter','latex','FontSize', fz);
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
+grid on;
