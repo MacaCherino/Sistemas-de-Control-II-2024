@@ -71,6 +71,7 @@ xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
 ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
 grid on;
 
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
 
 %% Ejercicio 2
 
@@ -82,7 +83,7 @@ plot(Da(:,1),Da(:,2),'-m','LineWidth', 1.2); %grafico de corriente
 title('Corriente en el circuito i(t)', 'Interpreter','latex','FontSize', fz);
 xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
 ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
-xlim([0 0.1])
+xlim([0 0.04])
 grid on;
 
 subplot(3,1,2)
@@ -90,7 +91,7 @@ plot(Da(:,1),Da(:,3),'-b','LineWidth', 1.2); %grafico de voltaje de capacitor
 xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
 ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
 title('Voltaje en el capacitor Vc(t)', 'Interpreter','latex','FontSize', fz);
-xlim([0 0.1])
+xlim([0 0.04])
 grid on;
 
 subplot(3,1,3)
@@ -98,14 +99,16 @@ plot(Da(:,1),Da(:,4),'-r','LineWidth', 1.2); %grafico de voltaje de capacitor
 title('Tension de Entrada', 'Interpreter','latex','FontSize', fz)
 xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
 ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
-xlim([0 0.1])
+xlim([0 0.04])
 grid on;
+
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
 
 StepAmplitude=1; %ganancia encontrada de los datos de la curva RLC
 K=12;
 pos_inic=101;       %posición donde se encuentra el escalón
 t_inic=0.01;        %tiempo donde se encuentra el escalón
-n=106;              %primer punto en el tiempo t1
+n=111;              %primer punto en el tiempo t1
 dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
 y_t1= Da(n,3);
 t_t1=Da(n,1);
@@ -132,8 +135,8 @@ T2_ang=-(t_t1-t_inic)/log(alfa2);
 T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
 
 s=tf('s');
-G=(K*(T3_ang*s+1))/((T1_ang*s +1)*(T2_ang*s +1))
-%G=(K)/((T1_ang*s +1)*(T2_ang*s +1)) %T3 es muy pequeño por lo que esta expresión también sería válida
+%G=(K*(T3_ang*s+1))/((T1_ang*s +1)*(T2_ang*s +1))
+G=(K)/((T1_ang*s +1)*(T2_ang*s +1)) %T3 es muy pequeño por lo que esta expresión también sería válida
 [numG,denG]=tfdata(G,'v');
 
 figure(4)
@@ -144,12 +147,13 @@ plot(Da(:,1),Da(:,3),'--r','LineWidth', 1.2);
 title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
 legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
 xlim([0 0.04])
+grid on
 hold off
-
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
 %Encontramos los parametros RLC
 %Para este caso iteraremos el valor de R ya que el primer coeficiente de la
 %ft encontrada es LC y el segundo RC.
-R=220  %defino R para tener 2 ecuaciones con 2 incognitas
+R=270  %defino R para tener 2 ecuaciones con 2 incognitas
 Cap=denG(1,2)/(R)
 L=denG(1,1)/Cap
 
@@ -164,31 +168,26 @@ L=denG(1,1)/Cap
 % -12 V desde 0,15 s a 0,2 s
 ts=0.2;%tiempo de simulacion
 h=0.0001; % paso entre muestras
-t=0:h:(ts-h);% vector tiempo
+t=0.05:h:(ts-h);% vector tiempo
 
-u=zeros(1,ts/h);
+u=zeros(size(t));
 
-for i=round(0.01/h):1:round(ts/h)
+for i=round(0.05/h):1:round(ts/h)
     
-    if (i>=(0.01/h) && i<(0.05/h)) || (i>=(0.1/h) && i<(0.15/h))
-        u(1,i)=12;
-    elseif i>(0.05/h) && i<=(0.1/h) || (i>=(0.15/h) && i<(0.2/h))
-        u(1,i)=-12;
+    if (i>=(0.1/h) && i<(0.15/h))
+        u(1,(i-0.05/h+1))=12;
+    elseif i>=(0.05/h) && i<=(0.1/h) || (i>=(0.15/h) && i<(0.2/h))
+        u(1,(i-0.05/h+1))=-12;
     end
 end
-% figure(5)
-% plot(t,u); %grafico de entrada u
-% title('Entrada V')
-% xlabel('Tiempo [Seg.]');
-% ylabel('Voltaje [Volt]');
 
 %Definimos las matrices
-Mat_A=[-R/L -1/L; 1/Cap 0];
-Mat_B=[1/L; 0];
-Mat_C=[1 0];
+A = [-R/L -1/L ; 1/Cap 0];
+b = [1/L ; 0];
+C=[1 0];
 
 %Definimos el sistema para corriente
-sys1=ss(Mat_A,Mat_B,Mat_C,[]);
+sys1=ss(A,b,C,[]);
 y_i=lsim(sys1,u,t);
 figure(6)
 hold on
@@ -199,4 +198,5 @@ plot(t,y_i,'-b','LineWidth',1.2);
 plot(Da(:,1),Da(:,2),'--r','LineWidth',1.2);
 legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
 hold off
-
+xlim([0.05 0.2])
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
