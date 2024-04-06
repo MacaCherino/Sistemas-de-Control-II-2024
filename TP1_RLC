@@ -12,12 +12,12 @@ C=100e-9;
 % Matrices
 A = [-R/L -1/L ; 1/C 0];
 b = [1/L ; 0];
-c=[R 0;0 1]; % Necesito el voltaje a la salida que es el producto entre la corriente de la malla y la resistencia
+c=[R 0]; % Necesito el voltaje a la salida que es el producto entre la corriente de la malla y la resistencia
 
 % Entrada de 12 V que cambia de singo cada 1 ms
 
 h=1e-10; %paso
-t = 0:h:(4e-3); % Vector de tiempo de 0 a 4 ms
+t = 0:h:(4e-3-h); % Vector de tiempo de 0 a 4 ms
 u = zeros(size(t)); % Vector de ceros de la misma longitud que el vector de tiempo
 variable=0;%cuenta 1 ms/h
 
@@ -70,3 +70,133 @@ title('Corriente en el circuito i(t)', 'Interpreter','latex','FontSize', fz);
 xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
 ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
 grid on;
+
+
+%% Ejercicio 2
+
+Da = readmatrix('Curvas_Medidas_RLC_2024.xls');%Da=datos
+fz=15;
+figure(2)
+subplot(3,1,1)
+plot(Da(:,1),Da(:,2),'-m','LineWidth', 1.2); %grafico de corriente
+title('Corriente en el circuito i(t)', 'Interpreter','latex','FontSize', fz);
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
+xlim([0 0.1])
+grid on;
+
+subplot(3,1,2)
+plot(Da(:,1),Da(:,3),'-b','LineWidth', 1.2); %grafico de voltaje de capacitor
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
+title('Voltaje en el capacitor Vc(t)', 'Interpreter','latex','FontSize', fz);
+xlim([0 0.1])
+grid on;
+
+subplot(3,1,3)
+plot(Da(:,1),Da(:,4),'-r','LineWidth', 1.2); %grafico de voltaje de capacitor
+title('Tension de Entrada', 'Interpreter','latex','FontSize', fz)
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
+xlim([0 0.1])
+grid on;
+
+StepAmplitude=1; %ganancia encontrada de los datos de la curva RLC
+K=12;
+pos_inic=101;       %posición donde se encuentra el escalón
+t_inic=0.01;        %tiempo donde se encuentra el escalón
+n=106;              %primer punto en el tiempo t1
+dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
+y_t1= Da(n,3);
+t_t1=Da(n,1);
+
+t_2t1=Da(n+dist,1);
+y_2t1=Da(n+dist,3);
+
+t_3t1=Da(n+2*dist,1);
+y_3t1=Da(n+2*dist,3);
+
+k1=(1/StepAmplitude)*y_t1/K-1;%Afecto el valor del Escalon
+k2=(1/StepAmplitude)*y_2t1/K-1;
+k3=(1/StepAmplitude)*y_3t1/K-1;
+
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(k1+alfa2)/(alfa1-alfa2);
+
+T1_ang=-0.005/log(alfa1);
+T2_ang=-0.005/log(alfa2);
+T1_ang=-(t_t1-t_inic)/log(alfa1);
+T2_ang=-(t_t1-t_inic)/log(alfa2);
+T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
+
+s=tf('s');
+G=(K*(T3_ang*s+1))/((T1_ang*s +1)*(T2_ang*s +1))
+%G=(K)/((T1_ang*s +1)*(T2_ang*s +1)) %T3 es muy pequeño por lo que esta expresión también sería válida
+[numG,denG]=tfdata(G,'v');
+
+figure(4)
+hold on
+[x,y]=step(G*exp(-s*0.01)); %agrego retardo de 0.01 segundos al step para que coincida con los datos del excel
+plot(y,x,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,3),'--r','LineWidth', 1.2);
+title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+xlim([0 0.04])
+hold off
+
+%Encontramos los parametros RLC
+%Para este caso iteraremos el valor de R ya que el primer coeficiente de la
+%ft encontrada es LC y el segundo RC.
+R=220  %defino R para tener 2 ecuaciones con 2 incognitas
+Cap=denG(1,2)/(R)
+L=denG(1,1)/Cap
+
+% Ejercicio 3
+
+% Armamos la tension de entrada u, que para este caso observando los datos
+% en el excel tenemos una entrada de la siguiente secuencia:
+% 0 V desde el tiempo 0 seg a 0,0099 s
+% 12 V desde 0,01 s a 0,0499 s
+% -12 V desde 0,05 s a 0,0999 s
+% 12 V desde 0,1 s a 0,1499 s
+% -12 V desde 0,15 s a 0,2 s
+ts=0.2;%tiempo de simulacion
+h=0.0001; % paso entre muestras
+t=0:h:(ts-h);% vector tiempo
+
+u=zeros(1,ts/h);
+
+for i=round(0.01/h):1:round(ts/h)
+    
+    if (i>=(0.01/h) && i<(0.05/h)) || (i>=(0.1/h) && i<(0.15/h))
+        u(1,i)=12;
+    elseif i>(0.05/h) && i<=(0.1/h) || (i>=(0.15/h) && i<(0.2/h))
+        u(1,i)=-12;
+    end
+end
+% figure(5)
+% plot(t,u); %grafico de entrada u
+% title('Entrada V')
+% xlabel('Tiempo [Seg.]');
+% ylabel('Voltaje [Volt]');
+
+%Definimos las matrices
+Mat_A=[-R/L -1/L; 1/Cap 0];
+Mat_B=[1/L; 0];
+Mat_C=[1 0];
+
+%Definimos el sistema para corriente
+sys1=ss(Mat_A,Mat_B,Mat_C,[]);
+y_i=lsim(sys1,u,t);
+figure(6)
+hold on
+grid on;
+xlabel('Tiempo [Seg.]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Corriente [Amp.]', 'Interpreter','latex','FontSize', fz-2);
+plot(t,y_i,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,2),'--r','LineWidth',1.2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+hold off
+
