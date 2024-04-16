@@ -81,3 +81,409 @@ ylabel('Velocidad angular [rad/s]', 'Interpreter','latex','FontSize', fz-2);
 hold off;
 
 set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+
+%% Ejercicio 2 (Item 5)
+clear all
+clc
+close all
+
+% Wr/Va
+Da = readmatrix('Curvas_Medidas_Motor_2024.xls');%Da=datos
+
+fz=15;
+figure
+subplot(4,1,1)
+plot(Da(:,1),Da(:,2),'-m','LineWidth', 1.2);
+title('Velocidad Angular wr', 'Interpreter','latex','FontSize', fz);
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Velocidad Angular [rad/s]', 'Interpreter','latex','FontSize', fz-2);
+xlim([0 0.6])
+grid on;
+
+subplot(4,1,2)
+plot(Da(:,1),Da(:,3),'-b','LineWidth', 1.2); %grafico de voltaje de capacitor
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Corriente [A]', 'Interpreter','latex','FontSize', fz-2);
+title('Corriente de Armadura ia', 'Interpreter','latex','FontSize', fz);
+grid on;
+xlim([0 0.6])
+
+subplot(4,1,3)
+plot(Da(:,1),Da(:,4),'-r','LineWidth', 1.2); %grafico de voltaje de capacitor
+title('Tension de Entrada ut', 'Interpreter','latex','FontSize', fz)
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Voltaje [V]', 'Interpreter','latex','FontSize', fz-2);
+grid on;
+xlim([0 0.6])
+
+subplot(4,1,4)
+plot(Da(:,1),Da(:,5),'Color', [0.3010 0.7450 0.9330],'LineWidth', 1.2); %grafico de voltaje de capacitor
+title('Torque TL', 'Interpreter','latex','FontSize', fz)
+xlabel('Tiempo [s]', 'Interpreter','latex','FontSize', fz-2);
+ylabel('Torque [Nm]', 'Interpreter','latex','FontSize', fz-2);
+grid on;
+xlim([0 0.6])
+
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+
+%Primero encontraremos Wr/Va
+StepAmplitude=1;
+K=198.248802;
+pos_inic=701;       %posición donde se encuentra el escalón de 12 V cuando TL=0
+t_inic=0.03505;     %tiempo donde se encuentra el escalón de 12 V cuando TL=0
+n=703;              %primer punto en el tiempo t1
+dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
+y_t1= Da(n,2);
+t_t1=Da(n,1);
+ii=1;
+t_2t1=Da(n+dist,1);
+y_2t1=Da(n+dist,2);
+t_3t1=Da(n+2*dist,1);
+y_3t1=Da(n+2*dist,2);
+
+k1=(1/StepAmplitude)*y_t1/K-1;%Afecto el valor del Escalon
+k2=(1/StepAmplitude)*y_2t1/K-1;
+k3=(1/StepAmplitude)*y_3t1/K-1;
+
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(2*k1^3+3*k1*k2+k3-sqrt(be))/(sqrt(be));
+T1_ang=-(t_t1-t_inic)/log(alfa1);
+T2_ang=-(t_t1-t_inic)/log(alfa2);
+T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
+
+s=tf('s');
+G1=K/((T1_ang*s +1)*(T2_ang*s +1))
+%entrada de tension 12v
+G1n=G1/12;%ft normalizada
+
+figure
+hold on
+[x,y]=step(G1*exp(-s*t_inic)); %agrego retardo al step para que coincida con los datos del excel
+plot(y,x,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,2),'--r','LineWidth', 1.2);
+title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+xlim([0.02 0.06])
+grid on
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+
+%% Wr/TL
+StepAmplitude=1; %ganancia encontrada
+wr_tl=mean(Da(17000:30000,2));
+Kgain2=wr_tl;
+KTL=K-Kgain2;
+pos_inic=16684;       %posición donde se encuentra el escalón de 12 V cuando TL=0
+t_inic=0.1869;     %tiempo donde se encuentra el escalón de 12 V cuando TL=0
+n=16750;              %primer punto en el tiempo t1
+dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
+y_t1= Da(n,2);
+t_t1=Da(n,1);
+ii=1;
+t_2t1=Da(n+dist,1);
+y_2t1=Da(n+dist,2);
+t_3t1=Da(n+2*dist,1);
+y_3t1=Da(n+2*dist,2);
+
+k1=(1/StepAmplitude)*(Kgain2-y_t1)/Kgain2-1;%Afecto el valor del Escalon
+k2=(1/StepAmplitude)*(Kgain2-y_2t1)/Kgain2-1;
+k3=(1/StepAmplitude)*(Kgain2-y_3t1)/Kgain2-1;
+
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(2*k1^3+3*k1*k2+k3-sqrt(be))/(sqrt(be));
+T1_ang=-(t_t1-t_inic)/log(alfa1);
+T2_ang=-(t_t1-t_inic)/log(alfa2);
+T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
+
+s=tf('s');
+G2=((K-Kgain2)*(T3_ang*s+1))/((T1_ang*s +1)*(T2_ang*s +1))
+
+G2n=G2/0.001;%Normalizo la FT TL de entrada -0.1Nm
+
+figure
+hold on
+[x,y]=step(K-G2*exp(-s*t_inic)); %agrego retardo
+plot(y,x,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,2),'--r','LineWidth', 1.2);
+title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+grid on
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+xlim([0 0.3])
+
+h=0.00005;
+tsim=0.6;
+t=0:h:(tsim-h);
+
+va=zeros(1,round(tsim/h));
+for i=round(0.03505/h):1:round(tsim/h)
+    va(1,i)=12;
+end
+[y1 t1]=lsim(G1n,va(1,:),t);
+
+
+%Defino el torque
+tl=zeros(1,round(tsim/h));
+for i=round(0.1869/h):1:round(tsim/h)
+    if (i>=0.1869/h && i<0.3372/h) || (i>=0.4866/h)
+        tl(1,i)=-1e-3;
+    else if (i>=0.3372/h && i<0.4866/h)
+        tl(1,i)=0;
+        end
+    end
+end
+[y2 t2]=lsim(G2n,tl(1,:),t);
+
+figure
+hold on
+plot(t,y1+y2,'-b','LineWidth', 1.2);
+plot(Da(:,1),Da(:,2),'--r','LineWidth', 1.2);
+xlabel('Tiempo', 'Interpreter','latex','FontSize', fz-2);
+ylabel('wr', 'Interpreter','latex','FontSize', fz-2);
+title('Modelo dinamico Encontrado', 'Interpreter','latex','FontSize', fz);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+xlim([0 0.6])
+
+%% Ia/Wr
+fz=15;
+Da = readmatrix('Curvas_Medidas_Motor_2024.xls');%Da=datos
+StepAmplitude=1;
+K=8.95846784109874e-15;
+pos_inic=701;       %posición donde se encuentra el escalón de 12 V cuando TL=0
+t_inic=0.03515;     %tiempo donde se encuentra el escalón de 12 V cuando TL=0
+n=710;              %primer punto en el tiempo t1
+dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
+y_t1= Da(n,3);
+t_t1=Da(n,1);
+ii=1;
+t_2t1=Da(n+dist,1);
+y_2t1=Da(n+dist,3);
+t_3t1=Da(n+2*dist,1);
+y_3t1=Da(n+2*dist,3);
+
+k1=(1/StepAmplitude)*y_t1/K-1;%Afecto el valor del Escalon
+k2=(1/StepAmplitude)*y_2t1/K-1;
+k3=(1/StepAmplitude)*y_3t1/K-1;
+
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(2*k1^3+3*k1*k2+k3-sqrt(be))/(sqrt(be));
+%ingresar los t
+T1_ang=-(t_t1-t_inic)/log(alfa1);
+T2_ang=-(t_t1-t_inic)/log(alfa2);
+T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
+
+s=tf('s');
+G1=K*(T3_ang*s+1)/((T1_ang*s +1)*(T2_ang*s +1))
+%entrada de tension 12v
+G1n=G1/12;%ft normalizada
+
+figure
+hold on
+[x,y]=step(G1*exp(-s*t_inic)); %agrego retardo al step para que coincida con los datos del excel
+plot(y,x,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,3),'--r','LineWidth', 1.2);
+title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+xlim([0.02 0.05])
+grid on
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+
+% Ia/TL
+StepAmplitude=1; %ganancia encontrada
+ia_tl=mean(Da(17000:30000,3));
+Kgain2=ia_tl;
+pos_inic=16684;       %posición donde se encuentra el escalón de 12 V cuando TL=0
+t_inic=0.1869;     %tiempo donde se encuentra el escalón de 12 V cuando TL=0
+n=16750;              %primer punto en el tiempo t1
+dist=n-pos_inic;    %distancia equidistante donde se van a encontrar los otros dos puntos
+y_t1= Da(n,3);
+t_t1=Da(n,1);
+ii=1;
+t_2t1=Da(n+dist,1);
+y_2t1=Da(n+dist,3);
+t_3t1=Da(n+2*dist,1);
+y_3t1=Da(n+2*dist,3);
+
+k1=(1/StepAmplitude)*(Kgain2-y_t1)/Kgain2-1;%Afecto el valor del Escalon
+k2=(1/StepAmplitude)*(Kgain2-y_2t1)/Kgain2-1;
+k3=(1/StepAmplitude)*(Kgain2-y_3t1)/Kgain2-1;
+
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(2*k1^3+3*k1*k2+k3-sqrt(be))/(sqrt(be));
+%ingresar los t
+T1_ang=-(t_t1-t_inic)/log(alfa1);
+T2_ang=-(t_t1-t_inic)/log(alfa2);
+T3_ang=beta*(T1_ang-T2_ang)+T1_ang;
+
+s=tf('s');
+G2=((K-Kgain2)/2*(T3_ang*s+1))/((T1_ang*s +1)*(T2_ang*s +1))
+
+G2n=G2/0.001;%Normalizo la FT TL de entrada -0.1Nm
+
+figure
+hold on
+[x,y]=step(K-G2*exp(-s*t_inic)); %agrego retardo
+plot(y,x,'-b','LineWidth',1.2);
+plot(Da(:,1),Da(:,3),'--r','LineWidth', 1.2);
+title('Respuesta al Escalon', 'Interpreter','latex','FontSize', fz-2);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+grid on
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+xlim([0 0.3])
+
+h=0.00005;
+tsim=0.6;
+t=0:h:(tsim-h);
+
+va=zeros(1,round(tsim/h));
+for i=round(0.03505/h):1:round(tsim/h)
+    va(1,i)=12;
+end
+[y1 t1]=lsim(G1n,va(1,:),t);
+
+
+%Defino el torque
+tl=zeros(1,round(tsim/h));
+for i=round(0.1869/h):1:round(tsim/h)
+    if (i>=0.1869/h && i<0.3372/h) || (i>=0.4866/h)
+        tl(1,i)=-1e-3;
+    else if (i>=0.3372/h && i<0.4866/h)
+        tl(1,i)=0;
+        end
+    end
+end
+[y2 t2]=lsim(G2n,tl(1,:),t);
+
+figure
+hold on
+plot(t,y1+y2,'-b','LineWidth', 1.2);
+plot(Da(:,1),Da(:,3),'--r','LineWidth', 1.2);
+xlabel('Tiempo', 'Interpreter','latex','FontSize', fz-2);
+ylabel('wr', 'Interpreter','latex','FontSize', fz-2);
+title('Modelo dinamico Encontrado', 'Interpreter','latex','FontSize', fz);
+legend({'Encontrada','Observada'},'Location','northwest','Orientation','horizontal', 'Interpreter','latex','FontSize', fz-2)
+hold off
+set(gcf, 'Position', [50 50 600 600],'Color', 'w');
+xlim([0 0.6])
+%% Ejercicio 3 (Item 6)
+clear all
+clc
+close all
+
+K_P = 0.5;
+K_I = 0.001;
+K_D = 50;
+h = 1e-7; %[seg]
+T = h;
+tsim = 0.2; %[seg]
+tita_ref = 1; %[rad]
+
+A1 = (2*K_P*T+K_I*T^2+2*K_D)/(2*T);
+B1 = -(2*K_P*T+K_I*T^2-4*K_D)/(2*T);
+C1 = K_D/T;
+
+%Definicion de parametros
+Laa=366e-6;
+J=5e-9;
+Ra=55.6;
+B=0;
+Ki=6.49e-3;
+Km=6.53e-3;
+u=15;
+u_max=12;
+u_min=-12;
+
+%condiciones iniciales
+X=[0;0;0;0.5];
+e=zeros(round(tsim/T),1);
+
+%Defino el torque
+tl=zeros(1,round(tsim/h));
+for i=0:1:round(tsim/h)
+    if (i>=0.05/h && i<0.06/h)
+        tl(1,i)=-1e-5;
+    else if (i>=0.075/h && i<0.15/h)
+            tl(1,i)=-1.8e-5;
+        else if (i>=0.08/h && i<tsim/h)
+                tl(1,i)=0;
+            end
+        end
+    end
+end
+fz=15;
+KP=[0.1 1 5 20 50 100 150];
+KI=[1 0 0.1 0.01 0.001 0.0001 0.00001];
+KD=[0 1 5 10 20 50 100];
+idx_leg=1;
+for i=1:1:1
+    K_P=KP(6);
+    K_I=KI(7);
+    K_D=20;%KD(i);
+    A1 = (2*K_P*T+K_I*T^2+2*K_D)/(2*T);
+    B1 = -(2*K_P*T+K_I*T^2-4*K_D)/(2*T);
+    C1 = K_D/T;
+    %condiciones iniciales
+    X=[0;0;0;0];
+    e=zeros(round(tsim/T),1);
+    ii=0;
+    for t=0:1:round(tsim/h)-h
+        ii=ii+1;
+        k=ii+2;
+        if (u>u_max)
+            u=u_max;
+        end
+        if (u<u_min)
+            u=u_min;
+        end
+        TL=tl(1,ii);
+        X=modmotor(T,X,u,TL);
+        e(k)=tita_ref-X(4); %error
+        u=u+A1*e(k)+B1*e(k-1)+C1*e(k-2);
+        x1(ii)=X(1);
+        x2(ii)=X(2);
+        x3(ii)=X(3);
+        x4(ii)=X(4);
+        acc(ii)=u;
+        tl_p(ii)=TL;
+    end
+    t=0:T:tsim-T;
+    figure
+    subplot(3,1,1);
+    plot(t,x4,'-r','LineWidth', 1.2);
+    title('Posicion Angular [rad]', 'Interpreter','latex','FontSize', fz);
+    ylim([0 2])
+
+    subplot(3,1,2);
+    plot(t,acc,'-b','LineWidth', 1.2);
+    title('Voltaje de Control [V]', 'Interpreter','latex','FontSize', fz);
+    
+    subplot(3,1,3);
+    plot(t,tl_p,'-m','LineWidth', 1.2);
+    title('Torque [Nm]', 'Interpreter','latex','FontSize', fz);
+
+    xlabel('Tiempo [Seg]', 'Interpreter','latex','FontSize', fz-2);
+    
+%     legends_c{idx_leg} = sprintf("KP=%.1f, KI=%.3f, KD=%d ",K_P,K_I,K_D);
+%     idx_leg=idx_leg+1;
+%     hold on;
+%     figure(20)
+%     plot(t,x4,'LineWidth', 1.2)
+%     ylim([-0.5 2.5])
+%     xlim([0 0.2])
+%     hold on
+end
+
+%legend(legends_c,'Location','southeast','Interpreter','latex','FontSize', fz-2);
