@@ -65,7 +65,7 @@ while(ii<(pasos+1))
     thetaRef=thetaRef*(-1); 
     kk=0;
  end
- TL=tL(ii);
+ TL=tL(ii)/10;    %se divide por 10 para que funcione el saturador
  ref(ii)=thetaRef;
  estado=[ia(ii); omega(ii); theta(ii)];
  %Ley de control con ganancia de prealimentacion
