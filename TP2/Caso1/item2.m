@@ -1,5 +1,6 @@
 % Control con observador
-clear all; clc
+% Control con Observador
+clear all; clc; close all
 %% Parámetros del sistema
 Laa=4.994e-4; J=2.408e-9;Ra=20;B=0;Ki=9.647e-3;Km=60.529e-3;
 
@@ -8,33 +9,26 @@ h=5e-7 ; tF=10; pasos=(tF/h);
 
 %Definición e inicialización de variables
 ia_p=0; w_p=0; w_pp=0; theta_p=0; 
+ia_p_o=0; w_p_o=0; w_pp_o=0; theta_p_o=0; 
 t=0:h:tF; ia=0:h:tF; omega=0:h:tF; w_p=0:h:tF; theta=0:h:tF;
-u=linspace(0,0,pasos+1); ref=linspace(0,0,pasos+1);
+ia_o=0:h:tF; omega_o=0:h:tF; w_p_o=0:h:tF; theta_o=0:h:tF;
+u=linspace(0,0,pasos+1); ref=linspace(0,0,pasos+1); u_o=linspace(0,0,pasos+1);
 thetaRef=(pi/2); %Referencia de ángulo del motor
 Max_U=24; %Tension nominal del motor
 
-%Defino el torque
-
- tl=zeros(1,round(tF/h));
-% for i=round(0.1869/h):1:round(tF/h)
-%     if (i>=0.1869/h && i<0.3372/h) || (i>=0.4866/h && i<0.6/h) || (i>=5.1869/h && i<5.3372/h) || (i>=5.4866/h) && (i<5.6/h)
-%         tl(1,i)=1e-3/10;    % se divide por 10 para que funcione con saturador
-%     end
-% end
-
-%Extracción de datos
-tabla = readtable("Curvas_Medidas_Motor_2024.xls");
-tD = tabla{:,1};
-tLD = tabla{:,5};
-%Defino el torque
-i=0;
-tL = zeros(1,pasos);
-for t=0:h:0.6
-    i=i+1;
-    [~,pos] = min(abs(tD-i*h));
-    tL(i) = tLD(pos);
-    tL(pasos/2+i) = tLD(pos);
-end
+ %Extracción de datos
+ tabla = readtable("Curvas_Medidas_Motor_2024.xls");
+ tD = tabla{:,1};
+ tLD = tabla{:,5};
+ %Defino el torque
+ i=0;
+ tL = zeros(1,pasos);
+ for t=0:h:0.6
+     i=i+1;
+     [~,pos] = min(abs(tD-i*h));
+     tL(i) = tLD(pos);
+     tL(pasos/2+i) = tLD(pos);
+ end
 
 tc=5; %Tiempo de cambio de la referencia (5s).
 est=0; %Estado de la referencia.
@@ -42,6 +36,7 @@ est=0; %Estado de la referencia.
 ii=1; kk=0; 
 %Condiciones iniciales
 ia(1)=0; omega(1)=0; theta(1)=0; wp(1)=0; u(1)=0;
+ia_o(1)=0; omega_o(1)=0; theta_o(1)=0; wp_o(1)=0; u_o(1)=0;
 %Matrices del sistema lineal
 Mat_A=[-Ra/Laa -Km/Laa 0 ; Ki/J -B/J 0 ; 0 1 0];
 Mat_B=[1/Laa; 0 ; 0];
@@ -83,31 +78,46 @@ eig(Mat_A-Ko*Mat_C)
 x_hat=[0 ;0 ;0]; 
 
 while(ii<(pasos+1))
- kk=kk+h;
- if(kk>tc) % Cada 5 s cambia el valor de la referencia
-    thetaRef=thetaRef*(-1); 
-    kk=0;
- end
- TL=tL(ii)/10;
- ref(ii)=thetaRef;
- estado=[ia(ii); omega(ii); theta(ii)];
- %Ley de control
- u(ii)=-K*x_hat+Gj*ref(ii); %Con observador
- u(ii)=Max_U*tanh(u(ii)/Max_U) ; %Satura la acción de control.
- %Integracion Euler:
- w_pp =(-w_p(ii)*(Ra*J+Laa*B)-omega(ii)*(Ra*B+Ki*Km)+u(ii)*Ki)/(J*Laa);
- ia_p=(1/Laa)*(-Ra*ia(ii)-Km*omega(ii)+u(ii));
- w_p(ii+1)=w_p(ii)+h*w_pp-(1/J)*TL;
- ia(ii+1)=ia(ii)+h*ia_p;
- omega(ii+1)=omega(ii)+h*w_p(ii);
- theta(ii+1)=theta(ii)+h*omega(ii);
+    kk=kk+h;
+    if(kk>tc) % Cada 5 s cambia el valor de la referencia
+        thetaRef=thetaRef*(-1); 
+        kk=0;
+    end
+    TL=tL(ii)/10;
+    ref(ii)=thetaRef;
+    estado_o=[ia_o(ii); omega_o(ii); theta_o(ii)];
+    estado=[ia(ii); omega(ii); theta(ii)];
+    
+    %Ley de control
+    u_o(ii)=-K*x_hat+Gj*ref(ii);        %Con observador
+    u_o(ii)=Max_U*tanh(u_o(ii)/Max_U) ; %Satura la acción de control.
+    
+    u(ii)=-K*estado+Gj*ref(ii);         %Sin observador
+    u(ii)=Max_U*tanh(u(ii)/Max_U) ;     %Satura la tension de control.
+    
+    %Integracion Euler sin observador:
+    w_pp =(-w_p(ii)*(Ra*J+Laa*B)-omega(ii)*(Ra*B+Ki*Km)+u(ii)*Ki)/(J*Laa);
+    ia_p=(1/Laa)*(-Ra*ia(ii)-Km*omega(ii)+u(ii));
+    w_p(ii+1)=w_p(ii)+h*w_pp-(1/J)*TL;
+    ia(ii+1)=ia(ii)+h*ia_p;
+    omega(ii+1)=omega(ii)+h*w_p(ii);
+    theta(ii+1)=theta(ii)+h*omega(ii);
  
- %-----OBSERVADOR--------
- y_sal_O(ii)=Mat_C*x_hat;
- y_sal(ii)=Mat_C*estado;
- x_hatp=Mat_A*x_hat+Mat_B*u(ii)+Ko*(y_sal(ii)-y_sal_O(ii));
- x_hat=x_hat+h*x_hatp;
- ii=ii+1;
+    %Integracion Euler con observador:
+    w_pp_o =(-w_p_o(ii)*(Ra*J+Laa*B)-omega_o(ii)*(Ra*B+Ki*Km)+u_o(ii)*Ki)/(J*Laa);
+    ia_p_o=(1/Laa)*(-Ra*ia_o(ii)-Km*omega_o(ii)+u_o(ii));
+    w_p_o(ii+1)=w_p_o(ii)+h*w_pp_o-(1/J)*TL;
+    ia_o(ii+1)=ia_o(ii)+h*ia_p_o;
+    omega_o(ii+1)=omega_o(ii)+h*w_p_o(ii);
+    theta_o(ii+1)=theta_o(ii)+h*omega_o(ii);
+    
+    % Observador
+    y_sal(ii)=Mat_C*estado_o;
+    y_sal_O(ii)=Mat_C*x_hat;
+    x_hatp=Mat_A*x_hat+Mat_B*u_o(ii)+Ko*(y_sal(ii)-y_sal_O(ii));
+    x_hat=x_hat+h*x_hatp;
+ 
+    ii=ii+1;
 end
 
 %% Gráficos
@@ -117,7 +127,7 @@ t=0:h:tF;
 figure(1);
 legends_c = ["Obtenida", "Referencia"];
 subplot(3,1,1);
-plot(t,theta,'b','LineWidth', 1.2);
+plot(t,theta_o,'b','LineWidth', 1.2);
 hold on;
 plot(t,ref,'--r','LineWidth', 1.2);
 grid on
@@ -125,13 +135,13 @@ legend(legends_c,'Location','northeast','Interpreter','latex','FontSize', fz-2);
 title('Posicion Angular $\theta_t$ [rad]', 'Interpreter','latex','FontSize', fz);
 
 subplot(3,1,2);
-plot(t,ia,'r','LineWidth', 1.2);
+plot(t,ia_o,'r','LineWidth', 1.2);
 title('Corriente $i_a$ [A]', 'Interpreter','latex','FontSize', fz);
 xlabel('Tiempo en Seg.', 'Interpreter','latex','FontSize', fz-2); 
 grid on;
 
 subplot(3,1,3);
-plot(t,u,'m','LineWidth', 1.2);
+plot(t,u_o,'m','LineWidth', 1.2);
 title('Accion de control $u_t$ [V]', 'Interpreter','latex','FontSize', fz);
 xlabel('Tiempo en Seg.', 'Interpreter','latex','FontSize', fz-2); 
 grid on;
@@ -140,22 +150,26 @@ ylim([-25 25])
 set(gcf,'Color', 'w');
 %%
 
-legends_c = ["Obtenida", "Referencia"];
+legends_c = ["Obtenida sin Observador","Obtenida con Observador","Referencia"];
 
 figure(2)
 title('Comparacion de Posicion Angular', 'Interpreter','latex','FontSize', fz);
 subplot(2,1,1);
-plot(t,theta,'b','LineWidth', 1.2);
-grid on;hold on; 
-plot(t,ref,'--r','LineWidth', 1.2);
+plot(t,theta,'r','LineWidth', 1.2);
+hold on; 
+plot(t,theta_o,'b','LineWidth', 1.2);
+plot(t,ref,'--k','LineWidth', 1);
+grid on;
 title('$\theta_t = \pi/2$', 'Interpreter','latex','FontSize', fz-1);
 legend(legends_c,'Location','northeast','Interpreter','latex','FontSize', fz-2);
 ylim([1.56 1.575])
 xlim([0 0.6])
 subplot(2,1,2);
-plot(t,theta,'b','LineWidth', 1.2);
-grid on;hold on; 
-plot(t,ref,'--r','LineWidth', 1.2);
+plot(t,theta,'r','LineWidth', 1.2);
+hold on;
+plot(t,theta_o,'b','LineWidth', 1.2);
+plot(t,ref,'--k','LineWidth', 1);
+grid on; 
 title('$\theta_t = -\pi/2$', 'Interpreter','latex','FontSize', fz-1);
 legend(legends_c,'Location','northeast','Interpreter','latex','FontSize', fz-2);
 xlabel('Tiempo en Seg.', 'Interpreter','latex','FontSize', fz-2); 
